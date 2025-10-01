@@ -236,7 +236,9 @@ func (rw *RegularWorker) detectAndHandleReorg(res *indexer.BlockResult) (bool, e
 }
 
 func (rw *RegularWorker) isReorgCheckRequired() bool {
-	return rw.chain.GetNetworkType() == enum.NetworkTypeEVM
+	// Enable reorg detection for EVM and BTC (Bitcoin). Tron not supported.
+	nt := rw.chain.GetNetworkType()
+	return nt == enum.NetworkTypeEVM || nt == enum.NetworkTypeBtc
 }
 
 // addBlockHash adds a block hash to the array, maintaining max size

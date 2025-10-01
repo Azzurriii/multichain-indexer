@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/fystack/multichain-indexer/pkg/common/enum"
 	"github.com/go-playground/validator/v10"
 	"github.com/goccy/go-yaml"
 )
@@ -25,6 +26,17 @@ func Load(path string) (*Config, error) {
 	// apply defaults
 	if err := cfg.Chains.ApplyDefaults(cfg.Defaults); err != nil {
 		return nil, err
+	}
+
+	// normalize network type values in chains (e.g., "bitcoin" -> "btc")
+	for name, chain := range cfg.Chains {
+		switch string(chain.Type) {
+		case "bitcoin":
+			chain.Type = enum.NetworkTypeBtc
+		case "eth", "ethereum":
+			chain.Type = enum.NetworkTypeEVM
+		}
+		cfg.Chains[name] = chain
 	}
 
 	// validate

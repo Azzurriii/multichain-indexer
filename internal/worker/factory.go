@@ -1,17 +1,18 @@
 package worker
 
 import (
-	"context"
-	"strconv"
+    "context"
+    "strconv"
 
-	"github.com/fystack/multichain-indexer/internal/indexer"
-	"github.com/fystack/multichain-indexer/internal/rpc"
-	"github.com/fystack/multichain-indexer/internal/rpc/evm"
-	"github.com/fystack/multichain-indexer/internal/rpc/tron"
-	"github.com/fystack/multichain-indexer/pkg/addressbloomfilter"
-	"github.com/fystack/multichain-indexer/pkg/common/config"
-	"github.com/fystack/multichain-indexer/pkg/common/enum"
-	"github.com/fystack/multichain-indexer/pkg/common/logger"
+    "github.com/fystack/multichain-indexer/internal/indexer"
+    "github.com/fystack/multichain-indexer/internal/rpc"
+    "github.com/fystack/multichain-indexer/internal/rpc/evm"
+    "github.com/fystack/multichain-indexer/internal/rpc/bitcoin"
+    "github.com/fystack/multichain-indexer/internal/rpc/tron"
+    "github.com/fystack/multichain-indexer/pkg/addressbloomfilter"
+    "github.com/fystack/multichain-indexer/pkg/common/config"
+    "github.com/fystack/multichain-indexer/pkg/common/enum"
+    "github.com/fystack/multichain-indexer/pkg/common/logger"
 	"github.com/fystack/multichain-indexer/pkg/events"
 	"github.com/fystack/multichain-indexer/pkg/infra"
 	"github.com/fystack/multichain-indexer/pkg/ratelimiter"
@@ -174,6 +175,40 @@ func buildTronIndexer(chainName string, chainCfg config.ChainConfig) indexer.Ind
 	return indexer.NewTronIndexer(chainName, chainCfg, failover)
 }
 
+// buildBitcoinIndexer constructs a Bitcoin indexer with failover and providers.
+func buildBitcoinIndexer(chainName string, chainCfg config.ChainConfig) indexer.Indexer {
+    failover := rpc.NewFailover[bitcoin.BitcoinAPI](nil)
+
+    // Shared rate limiter for all nodes of this chain
+    rl := ratelimiter.GetOrCreateSharedPooledRateLimiter(
+        chainName, chainCfg.Throttle.RPS, chainCfg.Throttle.Burst,
+    )
+
+    for i, node := range chainCfg.Nodes {
+        client := bitcoin.NewBitcoinClient(
+            node.URL,
+            &rpc.AuthConfig{
+                Type:  rpc.AuthType(node.Auth.Type),
+                Key:   node.Auth.Key,
+                Value: node.Auth.Value,
+            },
+            chainCfg.Client.Timeout,
+            rl,
+        )
+
+        failover.AddProvider(&rpc.Provider{
+            Name:       chainName + "-" + strconv.Itoa(i+1),
+            URL:        node.URL,
+            Network:    chainName,
+            ClientType: "rpc",
+            Client:     client,
+            State:      rpc.StateHealthy,
+        })
+    }
+
+    return indexer.NewBitcoinIndexer(chainName, chainCfg, failover)
+}
+
 // CreateManagerWithWorkers initializes manager and all workers for configured chains.
 func CreateManagerWithWorkers(
 	ctx context.Context,
@@ -202,14 +237,16 @@ func CreateManagerWithWorkers(
 
 		// Build indexer depending on type
 		var idxr indexer.Indexer
-		switch chainCfg.Type {
-		case enum.NetworkTypeEVM:
-			idxr = buildEVMIndexer(chainName, chainCfg)
-		case enum.NetworkTypeTron:
-			idxr = buildTronIndexer(chainName, chainCfg)
-		default:
-			logger.Fatal("Unsupported network type", "chain", chainName, "type", chainCfg.Type)
-		}
+        switch chainCfg.Type {
+        case enum.NetworkTypeEVM:
+            idxr = buildEVMIndexer(chainName, chainCfg)
+        case enum.NetworkTypeTron:
+            idxr = buildTronIndexer(chainName, chainCfg)
+        case enum.NetworkTypeBtc:
+            idxr = buildBitcoinIndexer(chainName, chainCfg)
+        default:
+            logger.Fatal("Unsupported network type", "chain", chainName, "type", chainCfg.Type)
+        }
 
 		// Worker deps
 		deps := WorkerDeps{

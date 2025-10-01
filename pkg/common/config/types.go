@@ -37,7 +37,7 @@ type ChainConfig struct {
 	Name                string           `yaml:"-"`
 	NetworkId           string           `yaml:"network_id"`
 	InternalCode        string           `yaml:"internal_code"`
-	Type                enum.NetworkType `yaml:"type"                  validate:"required,oneof=tron evm"`
+	Type                enum.NetworkType `yaml:"type"                  validate:"required,oneof=tron evm btc"`
 	FromLatest          bool             `yaml:"from_latest"`
 	StartBlock          int              `yaml:"start_block"           validate:"min=0"`
 	PollInterval        time.Duration    `yaml:"poll_interval"`
@@ -66,7 +66,7 @@ type NodeConfig struct {
 }
 
 type AuthConfig struct {
-	Type  string `yaml:"type"  validate:"oneof=header query"`
+	Type  string `yaml:"type"  validate:"omitempty,oneof=header query"`
 	Key   string `yaml:"key"`
 	Value string `yaml:"value"`
 }

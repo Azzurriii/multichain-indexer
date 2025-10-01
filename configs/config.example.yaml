@@ -61,6 +61,20 @@ chains:
       - url: "https://bsc.blockrazor.xyz"
       - url: "https://bnb.rpc.subquery.network/public"
 
+  bitcoin_mainnet:
+    type: "btc"
+    start_block: 75144237
+    poll_interval: "8s"
+    nodes:
+      - url: "https://bitcoin-rpc.publicnode.com"
+
+  bitcoin_testnet:
+    type: "btc"
+    start_block: 75144237
+    poll_interval: "8s"
+    nodes:
+      - url: "https://bitcoin-testnet-rpc.publicnode.com"
+
 # Infrastructure services
 services:
   port: 8080 # Health check and monitoring server port

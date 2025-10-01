@@ -19,4 +19,5 @@ const (
 	TxnTypeTransfer      = "transfer"
 	TxnTypeTRC10Transfer = "trc10_transfer"
 	TxnTypeERC20Transfer = "erc20_transfer"
+	TxnTypeMining        = "mining" // Bitcoin coinbase transactions
 )
