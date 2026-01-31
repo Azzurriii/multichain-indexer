@@ -6,6 +6,7 @@ import (
 
 	"github.com/fystack/multichain-indexer/internal/indexer"
 	"github.com/fystack/multichain-indexer/internal/rpc"
+	"github.com/fystack/multichain-indexer/internal/rpc/aptos"
 	"github.com/fystack/multichain-indexer/internal/rpc/bitcoin"
 	"github.com/fystack/multichain-indexer/internal/rpc/evm"
 	"github.com/fystack/multichain-indexer/internal/rpc/tron"
@@ -228,6 +229,38 @@ func buildBitcoinIndexer(
 	return indexer.NewBitcoinIndexer(chainName, chainCfg, failover, pubkeyStore)
 }
 
+func buildAptosIndexer(chainName string, chainCfg config.ChainConfig, mode WorkerMode) indexer.Indexer {
+	failover := rpc.NewFailover[aptos.AptosAPI](nil)
+
+	rl := ratelimiter.GetOrCreateSharedPooledRateLimiter(
+		chainName, chainCfg.Throttle.RPS, chainCfg.Throttle.Burst,
+	)
+
+	for i, node := range chainCfg.Nodes {
+		client := aptos.NewAptosClient(
+			node.URL,
+			&rpc.AuthConfig{
+				Type:  rpc.AuthType(node.Auth.Type),
+				Key:   node.Auth.Key,
+				Value: node.Auth.Value,
+			},
+			chainCfg.Client.Timeout,
+			rl,
+		)
+
+		failover.AddProvider(&rpc.Provider{
+			Name:       chainName + "-" + strconv.Itoa(i+1),
+			URL:        node.URL,
+			Network:    chainName,
+			ClientType: "rest",
+			Client:     client,
+			State:      rpc.StateHealthy,
+		})
+	}
+
+	return indexer.NewAptosIndexer(chainName, chainCfg, failover)
+}
+
 // CreateManagerWithWorkers initializes manager and all workers for configured chains.
 func CreateManagerWithWorkers(
 	ctx context.Context,
@@ -263,6 +296,8 @@ func CreateManagerWithWorkers(
 			idxr = buildTronIndexer(chainName, chainCfg, ModeRegular)
 		case enum.NetworkTypeBtc:
 			idxr = buildBitcoinIndexer(chainName, chainCfg, ModeRegular, pubkeyStore)
+		case enum.NetworkTypeApt:
+			idxr = buildAptosIndexer(chainName, chainCfg, ModeRegular)
 		default:
 			logger.Fatal("Unsupported network type", "chain", chainName, "type", chainCfg.Type)
 		}
