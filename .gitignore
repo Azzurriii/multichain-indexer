@@ -2,5 +2,6 @@ data/
 logs/
 configs/config.yaml
 indexer
+/indexer
 kv-migrate
 wallet-kv-load
